@@ -38,8 +38,8 @@ function ボタンを押した時の内容(event: MouseEvent): void {
   ボタンを消してinsertTableRowに差分を表示する(el);
 }
 
-function 予定内容をdatastoreへ保存する(event: ScheduleEvent): void {
-  const histories: HistoryData[] = これまでの予定の内容をdatastoreから取得する();
+async function 予定内容をdatastoreへ保存する(event: ScheduleEvent): Promise<void> {
+  const histories: HistoryData[] = await これまでの予定の内容をdatastoreから取得する();
   const newHistory = ScheduleEventからHistoryDataを作る(event);
   
   // historiesの最初にnewHistoryを追加し、4つ以上なら最後の履歴は捨てる
@@ -48,7 +48,7 @@ function 予定内容をdatastoreへ保存する(event: ScheduleEvent): void {
     histories.pop();
   }
 
-  garoon.schedule.event.datastore.set(DATASTORE_KEY, histories);
+  await garoon.schedule.event.datastore.set(DATASTORE_KEY, histories);
 }
 
 function 取得用のボタンをinsertTableRowで表示する() {
@@ -66,8 +66,8 @@ function datastoreの内容を呼び出しJSONの差分を計算する() {
   // いったん生dataを出す
 }
 
-function ボタンを消してinsertTableRowに差分を表示する(element: HTMLButtonElement): void {
-  const histories = これまでの予定の内容をdatastoreから取得する();
+async function ボタンを消してinsertTableRowに差分を表示する(element: HTMLButtonElement): Promise<void> {
+  const histories = await これまでの予定の内容をdatastoreから取得する();
   const parent = element.parentElement as HTMLElement;
   element.remove();
   parent.textContent = JSON.stringify(histories, null, 2);
@@ -86,8 +86,8 @@ function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryD
 
 }
 
-function これまでの予定の内容をdatastoreから取得する(): HistoryData[] {
-  const data: unknown = garoon.schedule.event.datastore.get(DATASTORE_KEY);
+async function これまでの予定の内容をdatastoreから取得する(): Promise<HistoryData[]> {
+  const data: unknown = await garoon.schedule.event.datastore.get(DATASTORE_KEY);
   // dataが配列じゃなかったら空の配列を作って返す
   if (!Array.isArray(data)) {
     return [];
