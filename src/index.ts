@@ -20,13 +20,16 @@ garoon.events.on([
   "schedule.event.quick.edit.submit.success"
 ], JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする);
 
+garoon.events.on("schedule.event.detail.show", JSAPIで予定の表示イベントをフックする);
+
 function JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
   予定内容をdatastoreへ保存する(event.event);
   return event;
 }
 
-function JSAPIで予定の表示イベントをフックする() {  
+function JSAPIで予定の表示イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {  
   取得用のボタンをinsertTableRowで表示する();
+  return event;
 }
 
 function ボタンを押した時の内容(event: MouseEvent): void {
