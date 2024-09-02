@@ -1,7 +1,7 @@
 // Garoonの予定変更の履歴を表示するカスタマイズ
 // 仕組みとしては、datastoreに差分を管理するデータを保存していって、表示するときに差分を見やすく表示する
 
-const DATASTORE_KEY: string = "garoon-event-history-customize";
+const DATASTORE_KEY: string = "garoon.event.history.customize";
 
 interface HistoryData {
   updater: string, //名前だけで良い
