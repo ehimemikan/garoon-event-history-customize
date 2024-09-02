@@ -3,6 +3,10 @@
 
 const DATASTORE_KEY: string = "garoon.event.history.customize";
 
+interface DataStoreObject {
+  histories: HistoryData[]
+}
+
 interface HistoryData {
   updater: string, //名前だけで良い
   subject: string,
@@ -48,7 +52,7 @@ async function 予定内容をdatastoreへ保存する(event: ScheduleEvent): Pr
     histories.pop();
   }
 
-  await garoon.schedule.event.datastore.set(DATASTORE_KEY, histories);
+  await garoon.schedule.event.datastore.set(DATASTORE_KEY, {histories: histories});
 }
 
 function 取得用のボタンをinsertTableRowで表示する() {
@@ -89,8 +93,9 @@ function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryD
 async function これまでの予定の内容をdatastoreから取得する(): Promise<HistoryData[]> {
   const data: unknown = await garoon.schedule.event.datastore.get(DATASTORE_KEY);
   // dataが配列じゃなかったら空の配列を作って返す
-  if (!Array.isArray(data)) {
-    return [];
-  }
-  return data as HistoryData[];
+  return isDataStoreObject(data) && Array.isArray(data.histories) ? data.histories : [];
+}
+
+function isDataStoreObject(obj: unknown): obj is DataStoreObject {
+  return typeof obj === 'object' && obj !== null && 'histories' in obj;
 }
