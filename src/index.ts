@@ -85,5 +85,9 @@ function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryD
 
 function これまでの予定の内容をdatastoreから取得する(): HistoryData[] {
   const data: unknown = garoon.schedule.event.datastore.get(DATASTORE_KEY);
+  // dataが配列じゃなかったら空の配列を作って返す
+  if (!Array.isArray(data)) {
+    return [];
+  }
   return data as HistoryData[];
 }
