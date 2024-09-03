@@ -4,7 +4,8 @@
   "description": "garoon-event-history-customize",
   "main": "index.js",
   "scripts": {
-    "build": "tsc --outDir dist -p .",
+    "build": "webpack --mode=production",
+    "devlop": "webpack --mode=development",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -13,9 +14,13 @@
   "devDependencies": {
     "@types/node": "^22.5.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "webpack": "^5.94.0",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^5.0.4"
   },
   "dependencies": {
-    "deep-object-diff": "^1.1.9"
+    "deep-object-diff": "^1.1.9",
+    "ts-loader": "^9.5.1"
   }
 }
