@@ -1,6 +1,6 @@
 // Garoonの予定変更の履歴を表示するカスタマイズ
 // 仕組みとしては、datastoreに差分を管理するデータを保存していって、表示するときに差分を見やすく表示する
-import { diff, addedDiff, deletedDiff, updatedDiff, detailedDiff } from 'deep-object-diff';
+import { DetailedDiff, detailedDiff } from 'deep-object-diff';
 const DATASTORE_KEY: string = "garoon.event.history.customize";
 
 interface DataStoreObject {
@@ -15,6 +15,15 @@ interface HistoryData {
   attendies: string[], //名前の配列 後で所属を消す処理を書く
   facilities: string[], //名前の配列
   notes: string,
+}
+
+interface DiffObject {
+  subject?: string,
+  start?: string,
+  end?: string,
+  attendies?: object,
+  facilities?: object,
+  notes?: string,
 }
 
 garoon.events.on([
@@ -72,16 +81,63 @@ function 取得用のボタンをinsertTableRowで表示する() {
 }
 
 function datastoreの内容を呼び出しJSONの差分を計算する(before: HistoryData, after:HistoryData) {
-  return diff(before, after);
+  return detailedDiff(before, after);
 }
 
 async function ボタンを消してinsertTableRowに差分を表示する(element: HTMLButtonElement): Promise<void> {
   const histories = await これまでの予定の内容をdatastoreから取得する();
-  const diffTest = datastoreの内容を呼び出しJSONの差分を計算する(histories[0], histories[1]);
-  console.log(diffTest);
+  let diffString: string = "<div>";
+  // 配列の次の要素との差分を計算し、diffStringに追加していく
+  // 配列の最後まで続ける
+  for (let i = 0; i < histories.length - 1; i++) {
+    diffString += `${i+1}世代前 更新者: ${histories[i].updater}<br>`;
+    const diff = datastoreの内容を呼び出しJSONの差分を計算する(histories[i + 1], histories[i]);
+    diffString += diffをいい感じに表示する(diff, histories[i+1]);
+    diffString += "<br>";
+  }
+  diffString += "</div>";
   const parent = element.parentElement as HTMLElement;
   element.remove();
-  parent.textContent = JSON.stringify(histories, null, 2);
+  parent.innerHTML = diffString;
+}
+
+function diffをいい感じに表示する(diff: DetailedDiff, before: HistoryData): string {
+  let diffString: string = "";
+
+  let added: DiffObject = diff.added;
+  let updated: DiffObject = diff.updated;
+  let deleted: DiffObject = diff.deleted;
+
+  if (updated.subject) {
+    diffString += `　タイトルが「${before.subject}」から「${updated.subject}」に変更されました。<br>`;
+  }
+  if (updated.start) {
+    diffString += `　開始日時が「${before.start}」から「${updated.start}」に変更されました。<br>`;
+  }
+  if (updated.end) {
+    diffString += `　終了日時が「${before.end}」から「${updated.end}」に変更されました。<br>`;
+  }
+  if (added.attendies) {
+    const joinAttendiesName = Object.values(added.attendies).join("」、「");
+    diffString += `　参加者に「${joinAttendiesName}」が追加されました。<br>`;
+  }
+  if (deleted.attendies) {
+    // attendiesはオブジェクトなので、名前だけを取り出して「、」でつなげる
+    const joinAttendiesName = Object.values(deleted.attendies).join("」、「");
+    diffString += `　参加者から「${joinAttendiesName}」が削除されました。<br>`;
+  }
+  if (added.facilities) {
+    const joinFacilitiesName = Object.values(added.facilities).join("」、「");
+    diffString += `　施設に「${joinFacilitiesName}」が追加されました。<br>`;
+  }
+  if (deleted.facilities) {
+    const joinFacilitiesName = Object.values(deleted.facilities).join("」、「");
+    diffString += `　施設から「${joinFacilitiesName}」が削除されました。<br>`;
+  }
+  if (updated.notes) {
+    diffString += `　メモが「${before.notes}」から「${updated.notes}」に変更されました。<br>`;
+  }
+  return diffString;
 }
 
 function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryData {
