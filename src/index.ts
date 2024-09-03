@@ -93,9 +93,9 @@ function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryD
 }
 
 async function これまでの予定の内容をdatastoreから取得する(): Promise<HistoryData[]> {
-  const data: unknown = await garoon.schedule.event.datastore.get(DATASTORE_KEY);
-  // dataが配列じゃなかったら空の配列を作って返す
-  return isDataStoreObject(data) && Array.isArray(data.histories) ? data.histories : [];
+  const { value } = await garoon.schedule.event.datastore.get(DATASTORE_KEY);
+  // valueが履歴の配列じゃなかったら空の配列を作って返す
+  return isDataStoreObject(value) && Array.isArray(value.histories) ? value.histories : [];
 }
 
 function isDataStoreObject(obj: unknown): obj is DataStoreObject {
