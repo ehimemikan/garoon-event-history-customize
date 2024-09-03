@@ -51,8 +51,10 @@ async function 予定内容をdatastoreへ保存する(event: ScheduleEvent): Pr
   if (histories.length > 4) {
     histories.pop();
   }
+  const eventId: number = Number(event.id);
 
-  await garoon.schedule.event.datastore.set(DATASTORE_KEY, {histories: histories});
+  // REST APIでdatastoreに保存
+  await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'POST', {value: {histories: histories}});
 }
 
 function 取得用のボタンをinsertTableRowで表示する() {
