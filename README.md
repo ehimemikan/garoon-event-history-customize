@@ -1,4 +1,4 @@
 # garoon-event-history-customize
 
-# TODO
+サイボウズ社内のハッカソン企画で作成された、Garoonの予定の変更履歴を表示するカスタマイズです。
 
