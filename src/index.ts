@@ -36,7 +36,7 @@ garoon.events.on([
 garoon.events.on("schedule.event.detail.show", JSAPIで予定の表示イベントをフックする);
 
 function JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
-  予定内容をdatastoreへ保存する(event.event);
+  予定内容をdatastoreへ保存する(event);
   return event;
 }
 
@@ -50,9 +50,25 @@ function ボタンを押した時の内容(event: MouseEvent): void {
   ボタンを消してinsertTableRowに差分を表示する(el);
 }
 
-async function 予定内容をdatastoreへ保存する(event: ScheduleEvent): Promise<void> {
-  const histories: HistoryData[] = await これまでの予定の内容をdatastoreから取得する();
-  const isPOST = (histories.length == 0);
+async function 予定内容をdatastoreへ保存する(baseEventObj: BaseScheduleEventObject): Promise<void> {
+  const event: ScheduleEvent = baseEventObj.event;
+  const type: string = baseEventObj.type;
+  const histories: HistoryData[] = (isPost(baseEventObj)) ? [] : await これまでの予定の内容をRESTAPIでdatastoreから取得する(Number(event.id)) ;
+  if (type === "schedule.event.quick.create.submit.success") {
+    // なんか簡易登録だとattendeesとfacilitiesがないので作成者をこっちで無理やり入れる。バグか？
+    // https://cybozu.dev/ja/garoon/docs/overview/schedule-object/#schedule-object-attendees
+    event.attendees = [{
+      id: event.creator.id,
+      code: event.creator.code,
+      name: event.creator.name,
+      type: "USER",
+      attendanceResponse: {
+        status: "",
+        comment: ""
+      }
+    }];
+    event.facilities = [];
+  }
   const newHistory = ScheduleEventからHistoryDataを作る(event);
   
   // historiesの最初にnewHistoryを追加し、4つ以上なら最後の履歴は捨てる
@@ -63,11 +79,15 @@ async function 予定内容をdatastoreへ保存する(event: ScheduleEvent): Pr
   const eventId: number = Number(event.id);
 
   // REST APIでdatastoreに保存
-  if(isPOST){ 
+  if(isPost(baseEventObj)){ 
     await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'POST', {value: {histories: histories}});
   }else{
     await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'PUT', {value: {histories: histories}});
   }
+}
+
+function isPost(event: BaseScheduleEventObject): boolean {
+  return event.type === "schedule.event.create.submit.success" || event.type === "schedule.event.quick.create.submit.success";
 }
 
 function 取得用のボタンをinsertTableRowで表示する() {
@@ -85,15 +105,19 @@ function datastoreの内容を呼び出しJSONの差分を計算する(before: H
 }
 
 async function ボタンを消してinsertTableRowに差分を表示する(element: HTMLButtonElement): Promise<void> {
-  const histories = await これまでの予定の内容をdatastoreから取得する();
+  const histories = await これまでの予定の内容をJSAPIでdatastoreから取得する();
   let diffString: string = "<div>";
   // 配列の次の要素との差分を計算し、diffStringに追加していく
   // 配列の最後まで続ける
-  for (let i = 0; i < histories.length - 1; i++) {
-    diffString += `${i+1}世代前 更新者: ${histories[i].updater}<br>`;
-    const diff = datastoreの内容を呼び出しJSONの差分を計算する(histories[i + 1], histories[i]);
-    diffString += diffをいい感じに表示する(diff, histories[i+1]);
-    diffString += "<br>";
+  if (histories.length <= 1) {
+    diffString += "履歴はありません。<br>";
+  } else {
+    for (let i = 0; i < histories.length - 1; i++) {
+      diffString += `${i+1}世代前 更新者: ${histories[i].updater}<br>`;
+      const diff = datastoreの内容を呼び出しJSONの差分を計算する(histories[i + 1], histories[i]);
+      diffString += diffをいい感じに表示する(diff, histories[i+1]);
+      diffString += "<br>";
+    }
   }
   diffString += "</div>";
   const parent = element.parentElement as HTMLElement;
@@ -153,10 +177,19 @@ function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryD
 
 }
 
-async function これまでの予定の内容をdatastoreから取得する(): Promise<HistoryData[]> {
+async function これまでの予定の内容をJSAPIでdatastoreから取得する(): Promise<HistoryData[]> {
   let value: Object  = {};
   const data = await garoon.schedule.event.datastore.get(DATASTORE_KEY);
   if ( data != undefined) {value = data.value;}
+
+  // valueが履歴の配列じゃなかったら空の配列を作って返す
+  return isDataStoreObject(value) && Array.isArray(value.histories) ? value.histories : [];
+}
+
+async function これまでの予定の内容をRESTAPIでdatastoreから取得する(eventId: number): Promise<HistoryData[]> {
+  let value: Object  = {};
+  const data = await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'GET', {});
+  if ( data != undefined) {value = data.data.value;}
 
   // valueが履歴の配列じゃなかったら空の配列を作って返す
   return isDataStoreObject(value) && Array.isArray(value.histories) ? value.histories : [];
