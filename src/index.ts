@@ -45,12 +45,11 @@ garoon.events.on("schedule.event.create.show", (event: ScheduleEventCreateShow):
   return event;
 });
 
-async function JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
+function JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする(event: BaseScheduleEventObject): garoon.Promise<BaseScheduleEventObject> {
   if (! is通常予定(event)) {
-    return event;
+    return garoon.Promise.resolve(event);
   }
-  await 予定内容をdatastoreへ保存する(event);
-  return event;
+  return 予定内容をdatastoreへ保存する(event);
 }
 
 function JSAPIで予定の表示イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
@@ -79,7 +78,7 @@ function ボタンを押した時の内容(event: MouseEvent): void {
 // 
 // よって、解決策は必ずPUTで更新するようにして、作成時にはダミーのdatastoreをあらかじめ入れておくようにする。
 // 作成時にはhistoryは問答無用で初期化するので、これでなんとかなるはず。
-async function 予定内容をdatastoreへ保存する(baseEventObj: BaseScheduleEventObject): Promise<void> {
+async function 予定内容をdatastoreへ保存する(baseEventObj: BaseScheduleEventObject): Promise<BaseScheduleEventObject> {
   const event: ScheduleEvent = baseEventObj.event;
   const histories: HistoryData[] = (isPost(baseEventObj)) ? [] : await これまでの予定の内容をRESTAPIでdatastoreから取得する(Number(event.id));
   if (baseEventObj.type === "schedule.event.quick.create.submit.success") {
@@ -111,6 +110,8 @@ async function 予定内容をdatastoreへ保存する(baseEventObj: BaseSchedul
 
   // REST APIでdatastoreに保存
   await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'PUT', {value: {histories: histories}});
+
+  return baseEventObj;
 }
 
 function isPost(event: BaseScheduleEventObject): boolean {

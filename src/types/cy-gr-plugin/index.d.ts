@@ -34,7 +34,7 @@ declare namespace garoon {
      */
     function on<T extends EventNames>(
       event: T | T[],
-      handler: (callbackEvent: JSEvent<T>) => JSReturnEvent<T>
+      handler: (callbackEvent: JSEvent<T>) => JSReturnEvent<T> | garoon.Promise<JSReturnEvent<T>>
     ): void;
   }
   namespace base {
