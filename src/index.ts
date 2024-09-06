@@ -164,10 +164,14 @@ function diffをいい感じに表示する(diff: DetailedDiff, before: HistoryD
     diffString += `　タイトルが「${before.subject}」から「${updated.subject}」に変更されました。<br>`;
   }
   if (updated.start) {
-    diffString += `　開始日時が「${before.start}」から「${updated.start}」に変更されました。<br>`;
+    const beforeDate = new Date(before.start);
+    const updatedDate = new Date(updated.start);
+    diffString += `　開始日時が「${beforeDate.toLocaleString()}」から「${updatedDate.toLocaleString()}」に変更されました。<br>`;
   }
   if (updated.end) {
-    diffString += `　終了日時が「${before.end}」から「${updated.end}」に変更されました。<br>`;
+    const beforeDate = new Date(before.end);
+    const updatedDate = new Date(updated.end);
+    diffString += `　終了日時が「${beforeDate.toLocaleString()}」から「${updatedDate.toLocaleString()}」に変更されました。<br>`;
   }
   if (added.attendies) {
     const joinAttendiesName = Object.values(added.attendies).join("」、「");
