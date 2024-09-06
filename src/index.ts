@@ -12,8 +12,8 @@ interface HistoryData {
   subject: string,
   start: string, //datetimeがあれば良い
   end: string,
-  attendies: string[], //名前の配列 後で所属を消す処理を書く
-  facilities: string[], //名前の配列
+  attendies: {[key: string]: string}, //名前の配列 後で所属を消す処理を書く
+  facilities: {[key: string]: string}, //名前の配列
   notes: string,
 }
 
@@ -35,14 +35,35 @@ garoon.events.on([
 
 garoon.events.on("schedule.event.detail.show", JSAPIで予定の表示イベントをフックする);
 
-function JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
-  予定内容をdatastoreへ保存する(event);
+garoon.events.on("schedule.event.create.show", (event: ScheduleEventCreateShow): ScheduleEventCreateShow => {
+  try {
+    // 作成時にはダミーとしてhistoryを空にする
+    garoon.schedule.event.datastore.set(DATASTORE_KEY, {value: {histories: []}});
+  } catch(e) {
+    // 再利用だとたぶん失敗するが、登録に失敗しても特に何もしない
+  };
+  return event;
+});
+
+async function JSAPIで登録成功_簡易登録成功_変更成功_簡易変更成功イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
+  if (! is通常予定(event)) {
+    return event;
+  }
+  await 予定内容をdatastoreへ保存する(event);
   return event;
 }
 
-function JSAPIで予定の表示イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {  
+function JSAPIで予定の表示イベントをフックする(event: BaseScheduleEventObject): BaseScheduleEventObject {
+  if (! is通常予定(event)) {
+    return event;
+  }
   取得用のボタンをinsertTableRowで表示する();
   return event;
+}
+
+function is通常予定(baseEventObj: BaseScheduleEventObject): boolean {
+  const event = baseEventObj.event;
+  return event.eventType === "REGULAR";
 }
 
 function ボタンを押した時の内容(event: MouseEvent): void {
@@ -50,11 +71,18 @@ function ボタンを押した時の内容(event: MouseEvent): void {
   ボタンを消してinsertTableRowに差分を表示する(el);
 }
 
+// datastoreは存在しないときはPOST、存在するときはPUTで更新する
+// つまり、基本的には作成ならPOSTで、変更ならPUTになるはず
+// ただここで、再利用の場合は作成なのに、再利用元のdatastoreが残っているのでPUTにしなければならない
+// ではデータが有れば削除とか、再利用なら削除とかしたいが、再利用作成画面ではイベントIDが決まっていないので、削除のREST APIが実行できない。
+// また、JavaScript APIでdatastoreを空オブジェクトで更新することもできない。バリデーションエラー。
+// 
+// よって、解決策は必ずPUTで更新するようにして、作成時にはダミーのdatastoreをあらかじめ入れておくようにする。
+// 作成時にはhistoryは問答無用で初期化するので、これでなんとかなるはず。
 async function 予定内容をdatastoreへ保存する(baseEventObj: BaseScheduleEventObject): Promise<void> {
   const event: ScheduleEvent = baseEventObj.event;
-  const type: string = baseEventObj.type;
-  const histories: HistoryData[] = (isPost(baseEventObj)) ? [] : await これまでの予定の内容をRESTAPIでdatastoreから取得する(Number(event.id)) ;
-  if (type === "schedule.event.quick.create.submit.success") {
+  const histories: HistoryData[] = (isPost(baseEventObj)) ? [] : await これまでの予定の内容をRESTAPIでdatastoreから取得する(Number(event.id));
+  if (baseEventObj.type === "schedule.event.quick.create.submit.success") {
     // なんか簡易登録だとattendeesとfacilitiesがないので作成者をこっちで無理やり入れる。バグか？
     // https://cybozu.dev/ja/garoon/docs/overview/schedule-object/#schedule-object-attendees
     event.attendees = [{
@@ -68,6 +96,9 @@ async function 予定内容をdatastoreへ保存する(baseEventObj: BaseSchedul
       }
     }];
     event.facilities = [];
+    // 簡易登録はスケジュール作成画面を通らないので、schedule.event.create.showイベントが発火しない
+    // ここでまずdatastoreを初期化する
+    await garoon.api(`/api/v1/schedule/events/${Number(event.id)}/datastore/${DATASTORE_KEY}`, 'POST', {value: {histories: []}});
   }
   const newHistory = ScheduleEventからHistoryDataを作る(event);
   
@@ -79,11 +110,7 @@ async function 予定内容をdatastoreへ保存する(baseEventObj: BaseSchedul
   const eventId: number = Number(event.id);
 
   // REST APIでdatastoreに保存
-  if(isPost(baseEventObj)){ 
-    await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'POST', {value: {histories: histories}});
-  }else{
-    await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'PUT', {value: {histories: histories}});
-  }
+  await garoon.api(`/api/v1/schedule/events/${eventId}/datastore/${DATASTORE_KEY}`, 'PUT', {value: {histories: histories}});
 }
 
 function isPost(event: BaseScheduleEventObject): boolean {
@@ -170,11 +197,20 @@ function ScheduleEventからHistoryDataを作る(event: ScheduleEvent): HistoryD
     subject: event.subject,
     start: event.start.dateTime,
     end: event.end.dateTime,
-    attendies: event.attendees.map(a => a.name),
-    facilities: event.facilities.map(f => f.name),
+    attendies: transformAttendeesAndFacilities(event.attendees),
+    facilities: transformAttendeesAndFacilities(event.facilities),
     notes: event.notes
   };
 
+}
+
+// codeをキーにしてnameを取り出す
+function transformAttendeesAndFacilities(obj: {code: string, name: string}[]): { [key: string]: string } {
+  const result: { [key: string]: string } = {};
+  obj.forEach((obj) => {
+    result[obj.code] = obj.name;
+  });
+  return result;
 }
 
 async function これまでの予定の内容をJSAPIでdatastoreから取得する(): Promise<HistoryData[]> {
